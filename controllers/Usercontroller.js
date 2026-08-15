@@ -83,21 +83,31 @@ const login = async (req, res) => {
             });
         }
 
-        const token = generateToken(userexist._id)
+        const token = jwt.sign({
+            id: userexist._id,
+            name: userexist.name,
+            email: userexist.email
+        }, process.env.SECRET_KEY, {
+            expiresIn: '30d'
+        })
 
-        res.cookie('jwt', token, {
-            maxAge: 30 * 24 * 60 * 60 * 1000, // Expires in 30 Days
+        const cookieOptions = {
             httpOnly: true, // Accessible only by the server
-            secure: true, // Sent only over HTTPS
-            sameSite: 'strict' // Prevents CSRF attacks
-        });
+            maxAge: 30 * 24 * 60 * 60 * 1000, // Expires in 30 Days
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            path: "/",
+            domain: isProduction ? undefined : undefined
 
+        }
+        res.cookie("jwt", token, cookieOptions)
         return res.status(200).json({
             message: "User Login Successfully",
             success: true,
             id: userexist._id,
             name: userexist.name,
-            email: userexist.email
+            email: userexist.email,
+            token: token
         });
 
 
@@ -226,7 +236,7 @@ const logout = async (req, res) => {
 const addAddress = async (req, res) => {
     try {
 
-        
+
         const userId = req.user._id
 
 

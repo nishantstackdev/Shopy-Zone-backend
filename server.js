@@ -14,6 +14,10 @@ const Orderrouter = require('./routers/Orderrouter')
 
 
 const server = express()
+server.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false,
+}));
 
 server.use(cors({
     origin: [
