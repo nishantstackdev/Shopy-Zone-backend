@@ -56,7 +56,6 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-
         if (!email || !password) {
             return res.status(400).json({
                 message: "All Fields are required",
@@ -83,33 +82,24 @@ const login = async (req, res) => {
             });
         }
 
-        const token = jwt.sign({
-            id: userexist._id,
-            name: userexist.name,
-            email: userexist.email
-        }, process.env.SECRET_KEY, {
-            expiresIn: '30d'
-        })
 
-        const cookieOptions = {
-            httpOnly: true, // Accessible only by the server
-            maxAge: 30 * 24 * 60 * 60 * 1000, // Expires in 30 Days
-            secure: isProduction,
-            sameSite: isProduction ? "none" : "lax",
-            path: "/",
-            domain: isProduction ? undefined : undefined
+        const token = generateToken(userexist._id)
 
-        }
-        res.cookie("jwt", token, cookieOptions)
+        res.cookie("jwt", token, {
+            maxAge: 30 * 24 * 60 * 60 * 1000, //30days
+            httpOnly: true,
+            secure: true,
+            sameSite: "lax",
+            path: "/"
+        });
+
         return res.status(200).json({
             message: "User Login Successfully",
             success: true,
             id: userexist._id,
             name: userexist.name,
-            email: userexist.email,
-            token: token
+            email: userexist.email
         });
-
 
     } catch (error) {
         console.log(error);
