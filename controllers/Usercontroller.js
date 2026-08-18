@@ -89,7 +89,7 @@ const login = async (req, res) => {
             maxAge: 30 * 24 * 60 * 60 * 1000, //30days
             httpOnly: true,
             secure: true,
-            sameSite: "lax",
+            sameSite: "none",
             path: "/"
         });
 
