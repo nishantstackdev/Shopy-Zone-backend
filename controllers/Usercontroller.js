@@ -13,27 +13,42 @@ const register = async (req, res) => {
                 success: false
             })
         }
-        const existinguser = await Usermodel.findOne({ email })
-        if (existinguser) {
+
+        const normalizedEmail = email.trim().toLowerCase()
+        const existinguser = await Usermodel.findOne({ email: normalizedEmail })
+
+        if (existinguser?.isVerified) {
             return res.status(409).json({
                 message: "User Already Registered",
                 success: false
             })
         }
 
-        const encryptedString = cryptr.encrypt(password);
-        const otp = Math.floor(100000 + Math.random() * 90000)
-        const user = await Usermodel.create({
-            name,
-            email,
-            password: encryptedString,
-            otp: otp,
-            otpexpire: Date.now() + 3 * 60 * 1000
+        const encryptedString = cryptr.encrypt(password)
+        const otp = Math.floor(100000 + Math.random() * 900000)
+        let user = existinguser
 
-        })
-        const mailRes = await sendOtpMail(email, otp)
+        if (existinguser && !existinguser.isVerified) {
+            existinguser.name = name
+            existinguser.password = encryptedString
+            existinguser.otp = otp
+            existinguser.otpexpire = Date.now() + 3 * 60 * 1000
+            await existinguser.save()
+        } else {
+            user = await Usermodel.create({
+                name,
+                email: normalizedEmail,
+                password: encryptedString,
+                otp,
+                otpexpire: Date.now() + 3 * 60 * 1000,
+            })
+        }
+
+        const mailRes = await sendOtpMail(normalizedEmail, otp)
         if (mailRes !== "otp sent successfully") {
-            await Usermodel.findByIdAndDelete(user._id)
+            if (!existinguser) {
+                await Usermodel.findByIdAndDelete(user._id)
+            }
             return res.status(503).json({
                 message: "Could not send verification email. Please try again.",
                 success: false
@@ -41,7 +56,9 @@ const register = async (req, res) => {
         }
 
         return res.status(201).json({
-            message: "User Created Successfully",
+            message: existinguser
+                ? "Verification code resent. Please check your email."
+                : "User Created Successfully",
             success: true,
             id: user._id,
             name: user.name,
@@ -69,13 +86,22 @@ const login = async (req, res) => {
             });
         }
 
-        const userexist = await Usermodel.findOne({ email });
+        const normalizedEmail = email.trim().toLowerCase()
+        const userexist = await Usermodel.findOne({ email: normalizedEmail })
 
-        if (!userexist || userexist.isVerified === false) {
-            return res.status(409).json({
+        if (!userexist) {
+            return res.status(404).json({
                 message: "User not found",
                 success: false
-            });
+            })
+        }
+
+        if (!userexist.isVerified) {
+            return res.status(403).json({
+                message: "Please verify your email first",
+                success: false,
+                email: userexist.email,
+            })
         }
 
         // 🔥 Correct logic
@@ -120,8 +146,8 @@ const login = async (req, res) => {
 const verifyEmail = async (req, res) => {
     try {
         const { email, otp } = req.body
-        // console.log(req.body)
-        const userexist = await Usermodel.findOne({ email })
+        const normalizedEmail = email?.trim().toLowerCase()
+        const userexist = await Usermodel.findOne({ email: normalizedEmail })
         if (!userexist) {
             return res.status(409).json({
                 message: "User not found",
@@ -166,18 +192,19 @@ const verifyEmail = async (req, res) => {
 const resetOtp = async (req, res) => {
     try {
         const { email } = req.body
-        const userexist = await Usermodel.findOne({ email })
+        const normalizedEmail = email?.trim().toLowerCase()
+        const userexist = await Usermodel.findOne({ email: normalizedEmail })
         if (!userexist) {
             return res.status(409).json({
                 message: "User not found",
                 success: false
             })
         }
-        const otp = Math.floor(100000 + Math.random() * 90000)
+        const otp = Math.floor(100000 + Math.random() * 900000)
         userexist.otp = otp
         userexist.otpexpire = Date.now() + 3 * 60 * 1000
         await userexist.save()
-        const mailResponse = await sendOtpMail(email, otp)
+        const mailResponse = await sendOtpMail(normalizedEmail, otp)
         if (mailResponse !== "otp sent successfully") {
             return res.status(503).json({
                 message: "Could not send verification email. Please try again.",
