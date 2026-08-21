@@ -32,7 +32,13 @@ const register = async (req, res) => {
 
         })
         const mailRes = await sendOtpMail(email, otp)
-        console.log(mailRes)
+        if (mailRes !== "otp sent successfully") {
+            await Usermodel.findByIdAndDelete(user._id)
+            return res.status(503).json({
+                message: "Could not send verification email. Please try again.",
+                success: false
+            })
+        }
 
         return res.status(201).json({
             message: "User Created Successfully",
@@ -168,17 +174,23 @@ const resetOtp = async (req, res) => {
             })
         }
         const otp = Math.floor(100000 + Math.random() * 90000)
-        user.otp = otp
-        user.otpexpire = Date.now() + 3 * 60 * 1000
-        await user.save()
+        userexist.otp = otp
+        userexist.otpexpire = Date.now() + 3 * 60 * 1000
+        await userexist.save()
         const mailResponse = await sendOtpMail(email, otp)
-        console.log(mailResponse)
+        if (mailResponse !== "otp sent successfully") {
+            return res.status(503).json({
+                message: "Could not send verification email. Please try again.",
+                success: false
+            })
+        }
         return res.status(201).json({
             message: "Otp Reset Successfully",
             success: true
         })
 
     } catch (error) {
+        console.log(error)
         return res.status(500).json({
             message: "Internal Server Error",
             success: false
@@ -209,7 +221,12 @@ const getMe = async (req, res) => {
 const logout = async (req, res) => {
     try {
 
-        res.clearCookie('jwt')
+        res.clearCookie("jwt", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            path: "/",
+        })
         return res.status(201).json({
             message: "Cookies deleted successfully",
             success: true

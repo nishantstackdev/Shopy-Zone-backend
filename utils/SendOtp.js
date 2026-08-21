@@ -2,13 +2,18 @@ const nodemailer = require("nodemailer");
 
 const sendOtpMail = async (toEmail, otp) => {
     try {
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.error("SMTP error: EMAIL_USER or EMAIL_PASS not configured")
+            return "error sending email"
+        }
+
         const transporter = nodemailer.createTransport({
             service: "gmail",
             port: 587,
             secure: false,
             auth: {
                 user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
+                pass: process.env.EMAIL_PASS.replace(/\s/g, ""),
             }
         })
 
@@ -64,8 +69,8 @@ const sendOtpMail = async (toEmail, otp) => {
         return "otp sent successfully"
 
     } catch (error) {
-      console.log(error)
-       return "error sending email"
+        console.error("SMTP error:", error.code, error.response, error.message)
+        return "error sending email"
     }
 }
 

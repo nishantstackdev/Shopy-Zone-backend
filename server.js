@@ -20,11 +20,14 @@ server.use(helmet({
   contentSecurityPolicy: false,
 }));
 
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://shopy-zone-frontend.vercel.app",
+    process.env.FRONTEND_URL,
+].filter(Boolean)
+
 server.use(cors({
-    origin: [
-        "http://localhost:3000",
-        "https://shopy-zone-frontend.vercel.app"
-    ],
+    origin: allowedOrigins,
     credentials: true
 }))
 server.use(express.json())

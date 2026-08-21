@@ -5,13 +5,12 @@
         if (req.cookies && req.cookies.jwt) {
             token = req.cookies.jwt
         }
-        // Temporarily apne protect middleware mein yeh likho
-        const allUsers = await Usermodel.find({});
-        
 
-
-        if (!token) {
-            token = req.headers.authorization
+        if (!token && req.headers.authorization) {
+            const authHeader = req.headers.authorization
+            token = authHeader.startsWith("Bearer ")
+                ? authHeader.slice(7)
+                : authHeader
         }
 
         if (!token) {
@@ -21,7 +20,16 @@
             })
         }
 
-        let decoded = jwt.verify(token, process.env.SECRET_KEY)
+        let decoded
+        try {
+            decoded = jwt.verify(token, process.env.SECRET_KEY)
+        } catch (error) {
+            return res.status(401).json({
+                message: "Invalid or expired token",
+                success: false
+            })
+        }
+
         req.user = await Usermodel.findOne({ _id: decoded.id }).select("-password")
         if (!req.user) {
             return res.status(403).json({
