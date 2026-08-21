@@ -4,6 +4,9 @@ const cryptr = new Cryptr(process.env.SECRET_KEY);
 const { sendOtpMail } = require("../utils/SendOtp");
 const generateToken = require("../utils/generateToken");
 
+const createOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+const otpExpiry = () => Date.now() + 10 * 60 * 1000;
+
 const register = async (req, res) => {
     try {
         const { name, email, password } = req.body
@@ -25,14 +28,14 @@ const register = async (req, res) => {
         }
 
         const encryptedString = cryptr.encrypt(password)
-        const otp = Math.floor(100000 + Math.random() * 900000)
+        const otp = createOtp()
         let user = existinguser
 
         if (existinguser && !existinguser.isVerified) {
             existinguser.name = name
             existinguser.password = encryptedString
             existinguser.otp = otp
-            existinguser.otpexpire = Date.now() + 3 * 60 * 1000
+            existinguser.otpexpire = otpExpiry()
             await existinguser.save()
         } else {
             user = await Usermodel.create({
@@ -40,18 +43,16 @@ const register = async (req, res) => {
                 email: normalizedEmail,
                 password: encryptedString,
                 otp,
-                otpexpire: Date.now() + 3 * 60 * 1000,
+                otpexpire: otpExpiry(),
             })
         }
 
         const mailRes = await sendOtpMail(normalizedEmail, otp)
         if (mailRes !== "otp sent successfully") {
-            if (!existinguser) {
-                await Usermodel.findByIdAndDelete(user._id)
-            }
             return res.status(503).json({
-                message: "Could not send verification email. Please try again.",
-                success: false
+                message: "Account created, but verification email could not be sent. Open the OTP page and tap Resend.",
+                success: false,
+                email: user.email,
             })
         }
 
@@ -160,7 +161,7 @@ const verifyEmail = async (req, res) => {
                 success: false
             })
         }
-        if (String(userexist.otp) !== String(otp)) {
+        if (String(userexist.otp).trim() !== String(otp).trim()) {
             return res.status(409).json({
                 message: "Invalid Otp",
                 success: false
@@ -200,15 +201,16 @@ const resetOtp = async (req, res) => {
                 success: false
             })
         }
-        const otp = Math.floor(100000 + Math.random() * 900000)
+        const otp = createOtp()
         userexist.otp = otp
-        userexist.otpexpire = Date.now() + 3 * 60 * 1000
+        userexist.otpexpire = otpExpiry()
         await userexist.save()
         const mailResponse = await sendOtpMail(normalizedEmail, otp)
         if (mailResponse !== "otp sent successfully") {
             return res.status(503).json({
                 message: "Could not send verification email. Please try again.",
-                success: false
+                success: false,
+                email: userexist.email,
             })
         }
         return res.status(201).json({
